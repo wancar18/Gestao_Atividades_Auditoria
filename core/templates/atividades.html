@@ -1,0 +1,219 @@
+<!-- core/templates/atividades.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Controle de Atividades - {{ ano }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f7f7fa; }
+        .sidebar {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 2px 16px #3331;
+            min-height: 85vh;
+            padding: 24px 0 24px 0;
+        }
+        .empresa-btn {
+            width: 100%;
+            border: none;
+            background: #f5f6fa;
+            color: #333;
+            text-align: left;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            transition: background .16s;
+        }
+        .empresa-btn:hover, .empresa-btn.active {
+            background: #d32f2f22;
+            color: #d32f2f;
+        }
+        a.empresa-btn { text-decoration: none !important; }
+        a.empresa-btn:hover { text-decoration: none !important; }
+        .busca-input {
+            border-radius: 10px;
+            border: 1px solid #e3e3e3;
+            margin-bottom: 16px;
+            padding: 8px 14px;
+            width: 100%;
+        }
+        .importar-btn-fix {
+            position: fixed;
+            left: 40px;
+            bottom: 30px;
+            z-index: 2000;
+        }
+        @media (max-width: 991px) {
+            .sidebar { min-height: auto; }
+            .importar-btn-fix { left: 10px; bottom: 10px; }
+        }
+        .modal-backdrop-custom {
+            background: #0009;
+        }
+    </style>
+    <script>
+        function filtrarEmpresas() {
+            var termo = document.getElementById('busca-empresa').value.toLowerCase();
+            document.querySelectorAll('.empresa-btn').forEach(function(btn) {
+                var nome = btn.textContent.toLowerCase();
+                btn.style.display = nome.includes(termo) ? 'block' : 'none';
+            });
+        }
+        function marcarTodasEmpresas() {
+            document.querySelectorAll('.empresa-import-checkbox:not(:disabled)').forEach(function(ckb) {
+                ckb.checked = true;
+            });
+        }
+        function desmarcarTodasEmpresas() {
+            document.querySelectorAll('.empresa-import-checkbox:not(:disabled)').forEach(function(ckb) {
+                ckb.checked = false;
+            });
+        }
+        function openModalImportarEmpresas() {
+            document.getElementById('modal-importar-empresas').style.display = 'block';
+            document.getElementById('modal-backdrop').style.display = 'block';
+        }
+        function closeModalImportarEmpresas() {
+            document.getElementById('modal-importar-empresas').style.display = 'none';
+            document.getElementById('modal-backdrop').style.display = 'none';
+        }
+        function confirmarExclusaoEmpresa(empresaId, empresaNome) {
+            if(confirm("Deseja realmente remover \"" + empresaNome + "\" deste exercício?")) {
+                var f = document.getElementById('form-excluir-empresa-' + empresaId);
+                if(f) f.submit();
+            }
+        }
+        // Fecha o modal ao submeter o form (importar empresas)
+        document.addEventListener('DOMContentLoaded', function() {
+            var modalForm = document.getElementById('form-importar-empresas');
+            if (modalForm) {
+                modalForm.addEventListener('submit', function() {
+                    closeModalImportarEmpresas();
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+
+{% if messages %}
+    <div class="container pt-2">
+        {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} fade show" role="alert" id="auto-dismiss-alert-{{ forloop.counter }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    <script>
+        // Esconde automaticamente cada alerta após 3 segundos
+        document.querySelectorAll('[id^="auto-dismiss-alert-"]').forEach(function(alertDiv, idx) {
+            setTimeout(function() {
+                alertDiv.classList.remove('show');
+                alertDiv.classList.add('hide');
+                setTimeout(function() {
+                    alertDiv.style.display = "none";
+                }, 500); // espera a transição do fade
+            }, 3000 + idx*300); // intervalo entre mensagens se várias
+        });
+    </script>
+{% endif %}
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Sidebar de empresas -->
+        <div class="col-lg-3 col-md-4 mb-4">
+            <div class="sidebar p-3 position-relative">
+                <div class="mb-3">
+                    <input type="text" id="busca-empresa" class="busca-input" placeholder="Buscar empresa..." onkeyup="filtrarEmpresas()">
+                </div>
+                <div>
+                    {% for empresa in empresas %}
+                        <a href="{% url 'gestao_atividades_empresa' ano=ano empresa_id=empresa.id %}" class="empresa-btn">
+                            {{ empresa.sigla|default:empresa.nome_fantasia|default:empresa.razao_social }}
+                        </a>
+                    {% empty %}
+                        <div class="text-muted ps-2">Nenhuma empresa importada para este exercício.</div>
+                    {% endfor %}
+                </div>
+                {% if request.user.is_superuser %}
+                <button class="btn btn-outline-success importar-btn-fix" onclick="openModalImportarEmpresas()">
+                    Importar Empresas
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Conteúdo principal -->
+        <div class="col-lg-9 col-md-8">
+            <!-- Botão Voltar -->
+            <a href="{% url 'exercicios' %}" class="btn btn-outline-danger mb-3">
+                &larr; Voltar para Exercícios
+            </a>
+            <h2 class="fw-bold mb-4" style="color:#d32f2f;">Controle de Atividades</h2>
+            <div class="alert alert-secondary">
+                Selecione uma empresa à esquerda para gerenciar as atividades do exercício {{ ano }}.<br>
+                (Em breve, painel e indicadores serão exibidos aqui.)
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Importar Empresas -->
+<div id="modal-backdrop" class="modal-backdrop-custom" style="display:none; position:fixed; left:0;top:0;width:100vw;height:100vh;z-index:2100;"></div>
+<div id="modal-importar-empresas" style="display:none; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2200; background:#fff; border-radius:14px; box-shadow:0 2px 24px #3335; max-width:470px; width:96vw;">
+    <form id="form-importar-empresas" method="post" action="{% url 'atividades' ano=ano %}" class="p-4">
+        {% csrf_token %}
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div style="font-size:1.2rem;font-weight:bold;">Importar Empresas para Exercício {{ ano }}</div>
+            <button type="button" onclick="closeModalImportarEmpresas()" class="btn btn-link fs-4" style="color:#888; text-decoration:none; margin-left: 14px;">&times;</button>
+        </div>
+        <div class="mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="marcarTodasEmpresas()">Marcar todas</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="desmarcarTodasEmpresas()">Desmarcar todas</button>
+        </div>
+        <div style="max-height:330px; overflow-y:auto;">
+            {% for empresa in todas_empresas %}
+                <div class="form-check mb-2 d-flex align-items-center">
+                    <input
+                        class="form-check-input me-2 empresa-import-checkbox"
+                        type="checkbox"
+                        name="empresas_selecionadas"
+                        value="{{ empresa.id }}"
+                        id="empresa-checkbox-{{ empresa.id }}"
+                        {% if empresa.id in empresas_exercicio_ids %}checked disabled{% endif %}
+                    >
+                    <label class="form-check-label me-2" for="empresa-checkbox-{{ empresa.id }}">
+                        {{ empresa.sigla|default:empresa.nome_fantasia|default:empresa.razao_social }}
+                    </label>
+                    {% if empresa.id in empresas_exercicio_ids %}
+                        <button type="button" class="btn btn-outline-danger btn-sm ms-2"
+                            onclick="confirmarExclusaoEmpresa('{{ empresa.id }}', '{{ empresa.sigla|default:empresa.nome_fantasia|default:empresa.razao_social }}')">
+                            Excluir
+                        </button>
+                        <span class="badge bg-success ms-2">Importada</span>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <div class="text-muted">Nenhuma empresa cadastrada no sistema.</div>
+            {% endfor %}
+        </div>
+        <div class="mt-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary" onclick="closeModalImportarEmpresas()">Cancelar</button>
+            <button type="submit" class="btn btn-success">Importar Selecionadas</button>
+        </div>
+    </form>
+</div>
+
+<!-- Forms de exclusão de empresas (fora de qualquer outro form!) -->
+{% for empresa in todas_empresas %}
+    {% if empresa.id in empresas_exercicio_ids %}
+        <form method="post" id="form-excluir-empresa-{{ empresa.id }}" action="{% url 'atividades' ano=ano %}" style="display:none;">
+            {% csrf_token %}
+            <input type="hidden" name="excluir_empresa_id" value="{{ empresa.id }}">
+        </form>
+    {% endif %}
+{% endfor %}
+
+</body>
+</html>
