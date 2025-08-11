@@ -5,22 +5,27 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.contrib import messages
-from .models import Exercicio, CustomUser, Empresa, ExercicioEmpresa
+from .models import (
+    Exercicio, CustomUser, Empresa, ExercicioEmpresa,
+    CategoriaAtividade, SubitemAtividade, Atividade, AtividadeEmpresa
+)
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse
 import pandas as pd
 import io
 
+import json
+from django.http import JsonResponse
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('exercicios')
-
     error = ''
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
         remember_me = request.POST.get('remember_me')
-
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
@@ -47,7 +52,6 @@ def lista_exercicios(request):
         else:
             messages.warning(request, f'Exercício {novo_ano} já existe!')
             return redirect('exercicios')
-
     exercicios = Exercicio.objects.all().order_by('-ano')
     return render(request, 'exercicios.html', {'exercicios': exercicios})
 
@@ -59,14 +63,12 @@ def atividades_view(request, ano):
         messages.error(request, "Exercício não encontrado!")
         return redirect('exercicios')
 
-    # POST: Excluir empresa deste exercício
     if request.method == "POST" and request.POST.get("excluir_empresa_id"):
         empresa_id = int(request.POST.get("excluir_empresa_id"))
         ExercicioEmpresa.objects.filter(exercicio=exercicio, empresa_id=empresa_id).delete()
         messages.success(request, "Empresa removida deste exercício!")
         return redirect('atividades', ano=ano)
 
-    # POST: Importar empresas para exercício
     if request.method == "POST" and request.POST.getlist('empresas_selecionadas'):
         selecionadas = set(map(int, request.POST.getlist('empresas_selecionadas')))
         empresas_exercicio_ids = set(ExercicioEmpresa.objects.filter(exercicio=exercicio).values_list("empresa_id", flat=True))
@@ -76,12 +78,9 @@ def atividades_view(request, ano):
         messages.success(request, 'Empresas importadas com sucesso!')
         return redirect('atividades', ano=ano)
 
-    # Lista empresas já importadas para este exercício
     empresas_relacionadas = ExercicioEmpresa.objects.filter(exercicio=exercicio).select_related('empresa')
     empresas_exercicio = [ee.empresa for ee in empresas_relacionadas]
     todas_empresas = Empresa.objects.all().order_by('sigla', 'nome_fantasia', 'razao_social')
-
-    # IDs das empresas já vinculadas ao exercício (para checkbox e bloqueio no modal)
     empresas_exercicio_ids = [empresa.id for empresa in empresas_exercicio]
 
     return render(request, 'atividades.html', {
@@ -90,7 +89,6 @@ def atividades_view(request, ano):
         'todas_empresas': todas_empresas,
         'empresas_exercicio_ids': empresas_exercicio_ids,
     })
-
 
 def home_redirect(request):
     return redirect('login')
@@ -150,7 +148,6 @@ def gestor_usuario_view(request):
     editar_user = None
     usuarios = CustomUser.objects.all().order_by('nome')
 
-    # Cadastro
     if request.method == 'POST' and 'criar_usuario' in request.POST:
         nome = request.POST.get('nome', '').strip()
         cargo = request.POST.get('cargo', '').strip()
@@ -178,7 +175,6 @@ def gestor_usuario_view(request):
             messages.success(request, 'Usuário cadastrado com sucesso!')
             return redirect('gestor_usuario')
 
-    # Editar (mostrar formulário de edição preenchido)
     if request.method == 'POST' and 'editar_usuario' in request.POST and not request.POST.get('nome'):
         user_id = int(request.POST.get('editar_usuario'))
         editar_user = get_object_or_404(CustomUser, pk=user_id)
@@ -187,7 +183,6 @@ def gestor_usuario_view(request):
             'editar_user': editar_user
         })
 
-    # Edição (salvar)
     if request.method == 'POST' and 'editar_usuario' in request.POST and request.POST.get('nome'):
         user_id = int(request.POST.get('editar_usuario'))
         user = get_object_or_404(CustomUser, pk=user_id)
@@ -222,7 +217,6 @@ def gestor_usuario_view(request):
             'editar_user': editar_user
         })
 
-    # Ativar/Inativar
     if request.method == 'POST' and 'toggle_status' in request.POST:
         user_id = int(request.POST.get('toggle_status'))
         user = CustomUser.objects.get(id=user_id)
@@ -231,14 +225,12 @@ def gestor_usuario_view(request):
         messages.success(request, f'Usuário {"ativado" if user.is_active else "inativado"} com sucesso!')
         return redirect('gestor_usuario')
 
-    # Deletar
     if request.method == 'POST' and 'deletar_usuario' in request.POST:
         user_id = int(request.POST.get('deletar_usuario'))
         CustomUser.objects.filter(id=user_id).delete()
         messages.success(request, 'Usuário deletado com sucesso!')
         return redirect('gestor_usuario')
 
-    # Alterar senha individual
     if request.method == 'POST' and 'alterar_senha' in request.POST:
         user_id = int(request.POST.get('alterar_senha'))
         nova_senha = request.POST.get('nova_senha')
@@ -277,7 +269,6 @@ def gestor_empresas_view(request):
     empresas = Empresa.objects.all().order_by('razao_social')
     editar_empresa = None
 
-    # IMPORTAÇÃO EM MASSA DE EMPRESAS
     if request.method == "POST" and 'importar_excel_empresas' in request.POST and request.FILES.get('excel_empresas'):
         excel_file = request.FILES["excel_empresas"]
         try:
@@ -311,7 +302,6 @@ def gestor_empresas_view(request):
             messages.error(request, f"Erro ao importar: {e}")
         return redirect('gestor_empresas')
 
-    # Cadastro manual
     if request.method == "POST" and 'cadastrar_empresa' in request.POST:
         razao_social = request.POST.get('razao_social', '').strip()
         nome_fantasia = request.POST.get('nome_fantasia', '').strip()
@@ -337,7 +327,6 @@ def gestor_empresas_view(request):
             messages.error(request, "Preencha todos os campos obrigatórios.")
         return redirect('gestor_empresas')
 
-    # Editar (abrir formulário preenchido)
     if request.method == "POST" and 'editar_empresa' in request.POST and not request.POST.get('razao_social'):
         empresa_id = int(request.POST.get('editar_empresa'))
         editar_empresa = Empresa.objects.get(id=empresa_id)
@@ -346,7 +335,6 @@ def gestor_empresas_view(request):
             'editar_empresa': editar_empresa
         })
 
-    # Salvar edição
     if request.method == "POST" and 'editar_empresa' in request.POST and request.POST.get('razao_social'):
         empresa_id = int(request.POST.get('editar_empresa'))
         empresa = Empresa.objects.get(id=empresa_id)
@@ -360,7 +348,6 @@ def gestor_empresas_view(request):
         messages.success(request, "Empresa atualizada com sucesso!")
         return redirect('gestor_empresas')
 
-    # Deletar
     if request.method == "POST" and 'deletar_empresa' in request.POST:
         empresa_id = int(request.POST.get('deletar_empresa'))
         Empresa.objects.filter(id=empresa_id).delete()
@@ -372,7 +359,6 @@ def gestor_empresas_view(request):
         'editar_empresa': editar_empresa
     })
 
-# ----------- DOWNLOAD MODELO EXCEL EMPRESAS -----------
 @login_required
 def download_excel_empresas(request):
     df = pd.DataFrame([{
@@ -397,7 +383,98 @@ def download_excel_empresas(request):
 @login_required
 def gestao_atividades_empresa_view(request, ano, empresa_id):
     empresa = get_object_or_404(Empresa, id=empresa_id)
+    exercicio = get_object_or_404(Exercicio, ano=ano)
+    categorias = CategoriaAtividade.objects.prefetch_related('subitens__atividades').all().order_by('nome')
+    usuarios = CustomUser.objects.filter(is_active=True).exclude(sigla__isnull=True).exclude(sigla='').order_by('sigla')
+    periodos = ["1º Trimestre", "2º Trimestre", "3º Trimestre", "4º Trimestre"]
+    status_choices = ["Não Iniciado", "Em Execução", "Concluso", "N/A"]
+
+    # 1. EDITAR STATUS
+    if request.method == "POST" and request.POST.get("editar_status_id"):
+        atvemp_id = int(request.POST.get("editar_status_id"))
+        status = request.POST.get("status")
+        AtividadeEmpresa.objects.filter(id=atvemp_id, empresa=empresa, exercicio=exercicio).update(status=status)
+        return redirect('gestao_atividades_empresa', ano=ano, empresa_id=empresa_id)
+
+    # 2. EDITAR USUÁRIO
+    if request.method == "POST" and request.POST.get("editar_usuario_id"):
+        atvemp_id = int(request.POST.get("editar_usuario_id"))
+        usuario_sigla = request.POST.get("usuario_sigla")
+        user = CustomUser.objects.filter(sigla=usuario_sigla).first()
+        if user:
+            AtividadeEmpresa.objects.filter(id=atvemp_id, empresa=empresa, exercicio=exercicio).update(usuario=user)
+        return redirect('gestao_atividades_empresa', ano=ano, empresa_id=empresa_id)
+
+    # 3. EDITAR DATA DE CONCLUSÃO
+    if request.method == "POST" and request.POST.get("editar_data_fim_id"):
+        atvemp_id = int(request.POST.get("editar_data_fim_id"))
+        data_fim = request.POST.get("data_conclusao") or None
+        AtividadeEmpresa.objects.filter(id=atvemp_id, empresa=empresa, exercicio=exercicio).update(data_fim=data_fim)
+        return redirect('gestao_atividades_empresa', ano=ano, empresa_id=empresa_id)
+
+    # 4. IMPORTAÇÃO DE ATIVIDADES
+    if request.method == "POST" and request.POST.getlist('atividades_importadas'):
+        ids_atividades = list(map(int, request.POST.getlist('atividades_importadas')))
+        periodo = request.POST.get('periodo') or ''
+        data_inicio = request.POST.get('data_inicio') or None
+        data_fim = request.POST.get('data_fim') or None
+        usuario_sigla = request.POST.get('usuario_sigla') or None
+        user = CustomUser.objects.filter(sigla=usuario_sigla).first() if usuario_sigla else None
+        for id_atividade in ids_atividades:
+            atv = get_object_or_404(Atividade, id=id_atividade)
+            if not AtividadeEmpresa.objects.filter(
+                empresa=empresa, exercicio=exercicio, atividade=atv
+            ).exists():
+                AtividadeEmpresa.objects.create(
+                    empresa=empresa,
+                    exercicio=exercicio,
+                    categoria=atv.subitem.categoria,
+                    subitem=atv.subitem,
+                    atividade=atv,
+                    periodo=periodo,
+                    data_inicio=data_inicio if data_inicio else None,
+                    data_fim=data_fim if data_fim else None,
+                    prazo=atv.tempo_estimado,
+                    usuario=user,
+                    status="Não Iniciado"
+                )
+        messages.success(request, "Atividades importadas com sucesso!")
+        return redirect('gestao_atividades_empresa', ano=ano, empresa_id=empresa_id)
+
+    atividades_importadas = AtividadeEmpresa.objects.filter(
+        empresa=empresa, exercicio=exercicio
+    ).select_related('categoria', 'subitem', 'atividade', 'usuario')
+
     return render(request, 'gestao_atividades_empresa.html', {
         'empresa': empresa,
         'ano': ano,
+        'categorias': categorias,
+        'usuarios': usuarios,
+        'atividades_importadas': atividades_importadas,
+        'periodos': periodos,
+        'status_choices': status_choices,
     })
+
+@login_required
+def gestor_atividades(request):
+    atividades = Atividade.objects.all().order_by('id')
+    return render(request, 'gestor_atividades.html', {'atividades': atividades})
+
+@login_required
+def editar_atividade(request, id):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        atividade = get_object_or_404(Atividade, id=id)
+        atividade.nome = data.get('nome')
+        atividade.descricao = data.get('descricao')
+        atividade.save()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'fail'}, status=400)
+
+@login_required
+def deletar_atividade(request, id):
+    if request.method == 'POST' and request.POST.get('_method') == 'DELETE':
+        atividade = get_object_or_404(Atividade, id=id)
+        atividade.delete()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'fail'}, status=400)
