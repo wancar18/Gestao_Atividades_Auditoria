@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Work7 Auditores - Configurações</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+<style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* NUNCA mostra barra de rolagem */
+    }
+    .container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        overflow: hidden;
+    }
+    .central-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        max-height: 65vh;
+        overflow: auto;
+    }
+    .btn-config {
+        font-size: 1rem;
+        padding: 14px 0;
+        width: 90%;
+        max-width: 220px;
+        margin: 12px auto;
+        border-radius: 14px;
+        font-weight: 700;
+        background: #d32f2f;
+        color: #fff;
+        box-shadow: 0 2px 12px #d32f2f22;
+        transition: background 0.2s, box-shadow 0.2s;
+        border: none;
+    }
+    .btn-config:hover {
+        background: #b71c1c;
+        color: #fff;
+        box-shadow: 0 4px 24px #b71c1c55;
+    }
+    h2 {
+        margin-top: 16px;
+        margin-bottom: 16px;
+    }
+</style>
+
+
+</head>
+<body>
+    <div class="container ">
+        <h2 class="text-center mt-5 mb-4 fw-bold" style="color:#d32f2f;">Configurações do Sistema</h2>
+        <div class="central-area">
+            <a href="{% url 'gestor_atividades' %}" class="btn btn-config mb-4">Gestor de Atividades</a>
+            <a href="{% url 'gestor_usuario' %}" class="btn btn-config mb-4">Gestor de Usuários</a>
+            <a href="{% url 'gestor_exercicio' %}" class="btn btn-config mb-4">Gestor de Exercícios</a>
+            <a href="{% url 'gestor_empresas' %}" class="btn btn-config mb-4">Gestor de Empresas</a>
+
+        </div>
+        <div class="text-center mt-4">
+            <a href="{% url 'exercicios' %}" class="btn btn-outline-danger">Voltar</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Work7 Auditores - Exercícios auditados</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #ffeaea; }
+        .exercicio-btn {
+            font-size: 2rem;
+            font-weight: bold;
+            background: #d32f2f;
+            color: #fff;
+            border-radius: 15px;
+            margin: 10px;
+            padding: 30px 60px;
+            transition: 0.2s;
+            box-shadow: 0 2px 8px #aaa3;
+        }
+        .exercicio-btn:hover {
+            background: #b71c1c;
+            color: #fff;
+            text-decoration: none;
+            box-shadow: 0 4px 16px #aaa4;
+        }
+        .novo-btn {
+            background: #fff;
+            color: #d32f2f;
+            border: 2px solid #d32f2f;
+            border-radius: 15px;
+            margin: 10px;
+            padding: 30px 60px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .novo-btn:hover {
+            background: #d32f2f;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+<div class="row align-items-center mt-5 mb-5">
+    <div class="col-md-10 offset-md-1 col-12">
+        <div class="d-flex justify-content-center align-items-center position-relative">
+            <h2 class="text-center w-100 mb-0" style="color: #d32f2f; font-size: 2.4rem">
+                Work7 Auditores - Exercícios auditados
+            </h2>
+            <a href="{% url 'configuracoes' %}" class="btn btn-outline-danger fw-bold ms-3 position-absolute end-0">
+                ⚙️ Configurações
+            </a>
+        </div>
+    </div>
+</div>
+        {% if messages %}
+            {% for m in messages %}
+                <div class="alert alert-{{ m.tags }}">{{ m }}</div>
+            {% endfor %}
+        {% endif %}
+        <div class="d-flex flex-wrap justify-content-center">
+            {% for exercicio in exercicios %}
+                <a href="{% url 'atividades' exercicio.ano %}" class="exercicio-btn text-center text-decoration-none">
+                    {{ exercicio.ano }}
+                </a>
+            {% endfor %}
+            <!-- Botão de adicionar -->
+            <button class="novo-btn" data-bs-toggle="modal" data-bs-target="#modalNovo">
+                + Novo Exercício
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal para novo exercício -->
+    <div class="modal fade" id="modalNovo" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-3">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Adicionar novo exercício</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="novo_ano" class="form-label">Ano:</label>
+                    <input type="number" min="2000" max="2099" class="form-control" id="novo_ano" name="novo_ano" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger">Criar</button>
+                </div>
+            </form>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
