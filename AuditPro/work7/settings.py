@@ -11,12 +11,31 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-d+sh0_9+%0%h4c@12mzu9-*d+q2lkq@*ce3wz&c=!59zxes75v'
-DEBUG = True
-ALLOWED_HOSTS = []
+# Carrega variáveis de um arquivo .env local, se existir (não faz nada em produção/Railway)
+load_dotenv(BASE_DIR.parent / '.env')
+
+# Em produção (Railway), defina SECRET_KEY e DEBUG=False nas variáveis de ambiente do serviço.
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-d+sh0_9+%0%h4c@12mzu9-*d+q2lkq@*ce3wz&c=!59zxes75v'
+)
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+
+# Railway injeta automaticamente o domínio público do serviço nessa variável
+RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+
+CSRF_TRUSTED_ORIGINS = [
+    f'https://{host}' for host in ALLOWED_HOSTS if host not in ('localhost', '127.0.0.1')
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -59,18 +79,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'work7.wsgi.application'
 
-# Conexão com MySQL conforme seus dados
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'auditpro',
-        'USER': 'root',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
-        'PORT': '3308',
-        'OPTIONS': {'charset': 'utf8mb4'},
+# Banco de dados: usa DATABASE_URL se existir (Railway injeta isso automaticamente
+# quando você adiciona o plugin de MySQL). Sem essa variável, cai no SQLite local.
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db_local_teste.sqlite3',
+        }
+    }
 
 
 LANGUAGE_CODE = 'pt-br'
@@ -80,6 +102,12 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'core', 'static')]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
